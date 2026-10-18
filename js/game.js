@@ -83,6 +83,8 @@ class Game {
     this.state = 'title';
     this.stateT = 0;
     this.time = 0;
+    this.settingsFrom = null;
+    this.settingsIndex = 0;
 
     this.score = 0;
     this.displayScore = 0;
@@ -214,6 +216,7 @@ class Game {
 
     switch (this.state) {
       case 'title': this.updateTitle(dt); break;
+      case 'settings': this.updateSettings(dt); break;
       case 'intro': this.updateIntro(dt); break;
       case 'stage': this.updateStage(dt); break;
       case 'paused': this.updatePaused(dt); break;
@@ -252,6 +255,10 @@ class Game {
 
   updateTitle(dt) {
     this.background.update(dt, 0.55);
+    if (Input.pressed('KeyO')) {
+      this.openSettings('title');
+      return;
+    }
     const prev = this.diffIndex;
     if (Input.pressed('ArrowLeft', 'KeyA', 'ArrowUp', 'KeyW')) {
       this.diffIndex = (this.diffIndex + DIFFICULTIES.length - 1) % DIFFICULTIES.length;
@@ -740,6 +747,10 @@ class Game {
   }
 
   updatePaused(dt) {
+    if (Input.pressed('KeyO')) {
+      this.openSettings('pause');
+      return;
+    }
     if (Input.pausePressed()) {
       this.state = 'stage';
       this.stateT = 0;
@@ -751,6 +762,60 @@ class Game {
     }
     if (Input.pressed('KeyQ')) {
       this.titleScreen();
+    }
+  }
+
+  openSettings(from) {
+    this.settingsFrom = from;
+    this.settingsIndex = 0;
+    this.state = 'settings';
+    this.stateT = 0;
+    AudioSys.play('select');
+  }
+
+  returnFromSettings() {
+    this.state = this.settingsFrom === 'pause' ? 'paused' : 'title';
+    this.stateT = 0;
+    this.settingsFrom = null;
+    AudioSys.play('select');
+  }
+
+  updateSettings(dt) {
+    this.background.update(dt, 0.45);
+
+    if (Input.pressed('Escape', 'KeyO')) {
+      this.returnFromSettings();
+      return;
+    }
+
+    const rowCount = 4;
+    if (Input.pressed('ArrowUp', 'KeyW')) {
+      this.settingsIndex = (this.settingsIndex + rowCount - 1) % rowCount;
+      AudioSys.play('select');
+    }
+    if (Input.pressed('ArrowDown', 'KeyS')) {
+      this.settingsIndex = (this.settingsIndex + 1) % rowCount;
+      AudioSys.play('select');
+    }
+
+    if (Input.pressed('KeyR')) {
+      AudioSys.resetVolumes();
+      AudioSys.play('select');
+    }
+
+    const left = Input.pressed('ArrowLeft', 'KeyA');
+    const right = Input.pressed('ArrowRight', 'KeyD');
+    if (this.settingsIndex === 0 && (left || right)) {
+      AudioSys.setBgmVolume(AudioSys.bgmVolume + (right ? 0.1 : -0.1));
+      AudioSys.play('select');
+    } else if (this.settingsIndex === 1 && (left || right)) {
+      AudioSys.setSfxVolume(AudioSys.sfxVolume + (right ? 0.1 : -0.1));
+      AudioSys.play('select');
+    } else if (this.settingsIndex === 2 && (left || right || Input.confirmPressed())) {
+      AudioSys.toggleMute();
+      AudioSys.play('select');
+    } else if (this.settingsIndex === 3 && Input.confirmPressed()) {
+      this.returnFromSettings();
     }
   }
 
@@ -806,6 +871,7 @@ class Game {
     ctx.setTransform(1.5, 0, 0, 1.5, 0, 0);
     ctx.clearRect(0, 0, VIEW_W, VIEW_H);
 
+    if (this.state === 'settings') { this.drawSettings(ctx); return; }
     if (this.state === 'title') { this.drawTitle(ctx); return; }
     if (this.state === 'allclear') { this.drawAllClear(ctx); return; }
 
@@ -1478,6 +1544,128 @@ class Game {
     ctx.restore();
   }
 
+  drawSettings(ctx) {
+    this.background.draw(ctx);
+    const wash = ctx.createLinearGradient(0, 0, 0, VIEW_H);
+    wash.addColorStop(0, 'rgba(2,6,13,0.62)');
+    wash.addColorStop(0.55, 'rgba(2,8,16,0.78)');
+    wash.addColorStop(1, 'rgba(1,3,8,0.9)');
+    ctx.fillStyle = wash;
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+    const cx = VIEW_W / 2;
+    const px = 190;
+    const py = 128;
+    const pw = 580;
+    const ph = 464;
+    const panel = ctx.createLinearGradient(0, py, 0, py + ph);
+    panel.addColorStop(0, 'rgba(7,22,36,0.96)');
+    panel.addColorStop(1, 'rgba(2,8,15,0.97)');
+    ctx.fillStyle = panel;
+    roundRectPath(ctx, px, py, pw, ph, 4);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(120,225,255,0.32)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(120,225,255,0.55)';
+    ctx.fillRect(px + 28, py, pw - 56, 1);
+
+    drawSpacedText(ctx, 'SYSTEM CONFIG', cx, py + 34, 4.5,
+      `9px ${MONO}`, 'rgba(120,220,245,0.55)', 'center');
+    glowText(ctx, 'AUDIO SETTINGS', cx, py + 76, `700 32px ${HEAD}`,
+      '#f1fcff', 'rgba(80,205,255,0.5)', 14, 'center');
+    drawSpacedText(ctx, 'サウンド設定', cx, py + 104, 3,
+      `10px ${SANS}`, 'rgba(160,225,240,0.5)', 'center');
+    ctx.strokeStyle = 'rgba(120,225,255,0.16)';
+    ctx.beginPath();
+    ctx.moveTo(px + 54, py + 126);
+    ctx.lineTo(px + pw - 54, py + 126);
+    ctx.stroke();
+
+    const rows = [
+      { key: 'bgm', label: 'BGM VOLUME', jp: '音楽' },
+      { key: 'sfx', label: 'SFX VOLUME', jp: '効果音' },
+      { key: 'mute', label: 'MUTE', jp: '消音' },
+      { key: 'back', label: 'BACK', jp: '戻る' },
+    ];
+    const rowY = [py + 168, py + 226, py + 284, py + 342];
+
+    rows.forEach((row, i) => {
+      const y = rowY[i];
+      const selected = this.settingsIndex === i;
+      if (selected) {
+        ctx.fillStyle = 'rgba(80,210,255,0.085)';
+        roundRectPath(ctx, px + 28, y - 25, pw - 56, 44, 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgba(120,235,255,0.85)';
+        ctx.fillRect(px + 28, y - 25, 2, 44);
+      }
+
+      ctx.textAlign = 'left';
+      ctx.font = `600 11px ${MONO}`;
+      ctx.fillStyle = selected ? '#dffaff' : 'rgba(175,225,235,0.7)';
+      ctx.fillText(row.label, px + 52, y);
+      ctx.font = `9px ${SANS}`;
+      ctx.fillStyle = 'rgba(130,200,220,0.4)';
+      ctx.fillText(row.jp, px + 52, y + 15);
+
+      if (row.key === 'bgm' || row.key === 'sfx') {
+        const value = row.key === 'bgm' ? AudioSys.bgmVolume : AudioSys.sfxVolume;
+        const barX = px + 240;
+        const barY = y - 3;
+        const barW = 220;
+        ctx.fillStyle = 'rgba(5,15,24,0.85)';
+        ctx.fillRect(barX, barY, barW, 6);
+        const fill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+        fill.addColorStop(0, '#2e9bc4');
+        fill.addColorStop(1, '#9ff4ff');
+        ctx.fillStyle = AudioSys.muted ? 'rgba(110,160,180,0.45)' : fill;
+        ctx.fillRect(barX, barY, barW * value, 6);
+        ctx.strokeStyle = 'rgba(140,225,245,0.18)';
+        ctx.lineWidth = 1;
+        for (let j = 0; j <= 10; j++) {
+          const tx = barX + (j / 10) * barW;
+          ctx.beginPath();
+          ctx.moveTo(tx, barY - 2);
+          ctx.lineTo(tx, barY + 8);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.fillStyle = '#eaffff';
+        ctx.arc(barX + barW * value, barY + 3, 3.2, 0, TAU);
+        ctx.fill();
+        ctx.textAlign = 'right';
+        ctx.font = `600 15px ${MONO}`;
+        ctx.fillStyle = selected ? '#f2fdff' : 'rgba(210,240,248,0.72)';
+        ctx.fillText(`${Math.round(value * 100)}%`, px + pw - 52, y + 2);
+      } else if (row.key === 'mute') {
+        ctx.textAlign = 'right';
+        ctx.font = `600 14px ${MONO}`;
+        ctx.fillStyle = AudioSys.muted ? '#ff9b82' : '#8ff5ca';
+        ctx.fillText(AudioSys.muted ? 'ON' : 'OFF', px + pw - 52, y + 2);
+      } else {
+        ctx.textAlign = 'right';
+        ctx.font = `11px ${MONO}`;
+        ctx.fillStyle = selected ? '#dffaff' : 'rgba(170,220,235,0.55)';
+        ctx.fillText('ESC / O', px + pw - 52, y + 2);
+      }
+    });
+
+    ctx.textAlign = 'center';
+    ctx.font = `9px ${MONO}`;
+    ctx.fillStyle = 'rgba(140,210,228,0.52)';
+    ctx.fillText('UP/DOWN : SELECT    LEFT/RIGHT : ADJUST    Z / ENTER : TOGGLE', cx, py + 400);
+    ctx.fillStyle = 'rgba(130,200,220,0.38)';
+    ctx.fillText('M : MUTE    R : RESET VOLUMES    ESC / O : BACK', cx, py + 420);
+
+    ctx.font = `9px ${MONO}`;
+    ctx.fillStyle = 'rgba(130,200,220,0.3)';
+    ctx.textAlign = 'left';
+    ctx.fillText('STARFALL PROTOCOL // AUDIO CONFIG', 24, VIEW_H - 24);
+    ctx.textAlign = 'right';
+    ctx.fillText('© 2026 Studio NØSa', VIEW_W - 24, VIEW_H - 24);
+  }
+
   drawPauseOverlay(ctx) {
     ctx.save();
     ctx.fillStyle = 'rgba(1,5,12,0.76)';
@@ -1504,6 +1692,7 @@ class Game {
       ['ESC / P', '再開'],
       ['R', 'このエリアをリトライ'],
       ['Q', 'タイトルへ'],
+      ['O', '設定 / 音量'],
       ['M', AudioSys.muted ? 'サウンド ON' : 'サウンド OFF'],
     ];
     items.forEach((row, i) => {
@@ -1833,7 +2022,7 @@ class Game {
     ctx.textAlign = 'center';
     ctx.font = `10px ${SANS}`;
     ctx.fillStyle = 'rgba(170,215,230,0.45)';
-    ctx.fillText('移動  矢印 / WASD      低速  SHIFT      ショット  Z      ボム  X      ポーズ  ESC', cx, 654);
+    ctx.fillText('移動  矢印 / WASD      低速  SHIFT      ショット  Z      ボム  X      ポーズ  ESC      設定  O', cx, 654);
 
     ctx.textAlign = 'center';
     ctx.font = `9px ${MONO}`;

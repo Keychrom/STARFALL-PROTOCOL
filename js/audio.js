@@ -26,6 +26,7 @@ const AudioSys = {
   pendingTrack: null,
   bgm: null,
   bgmVolume: 0.5,
+  sfxVolume: 1.0,
   _lastSfx: Object.create(null),
 
   init() {
@@ -42,6 +43,10 @@ const AudioSys = {
       return;
     }
     this.muted = !!Storage.get('gdr_muted', false);
+    const savedBgm = Number(Storage.get('gdr_bgm_vol', this.bgmVolume));
+    const savedSfx = Number(Storage.get('gdr_sfx_vol', this.sfxVolume));
+    this.bgmVolume = Number.isFinite(savedBgm) ? clamp(savedBgm, 0, 1) : 0.5;
+    this.sfxVolume = Number.isFinite(savedSfx) ? clamp(savedSfx, 0, 1) : 1.0;
 
     this.comp = this.ctx.createDynamicsCompressor();
     this.comp.threshold.value = -20;
@@ -52,7 +57,7 @@ const AudioSys = {
     this.comp.connect(this.ctx.destination);
 
     this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.72;
+    this.master.gain.value = this.muted ? 0 : 0.72 * this.sfxVolume;
     this.master.connect(this.comp);
 
     this.sfx = this.ctx.createGain();
@@ -75,11 +80,32 @@ const AudioSys = {
     if (this.master && this.ctx) {
       const t = this.ctx.currentTime;
       this.master.gain.cancelScheduledValues(t);
-      this.master.gain.setTargetAtTime(this.muted ? 0 : 0.72, t, 0.03);
+      this.master.gain.setTargetAtTime(this.muted ? 0 : 0.72 * this.sfxVolume, t, 0.03);
     }
     if (this.bgm) this.bgm.volume = this.muted ? 0 : this.bgmVolume;
     if (!this.muted) this.resumeBgm();
     return this.muted;
+  },
+
+  setBgmVolume(value) {
+    this.bgmVolume = clamp(value, 0, 1);
+    Storage.set('gdr_bgm_vol', this.bgmVolume);
+    if (this.bgm) this.bgm.volume = this.muted ? 0 : this.bgmVolume;
+  },
+
+  setSfxVolume(value) {
+    this.sfxVolume = clamp(value, 0, 1);
+    Storage.set('gdr_sfx_vol', this.sfxVolume);
+    if (this.master && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.master.gain.cancelScheduledValues(t);
+      this.master.gain.setTargetAtTime(this.muted ? 0 : 0.72 * this.sfxVolume, t, 0.03);
+    }
+  },
+
+  resetVolumes() {
+    this.setBgmVolume(0.5);
+    this.setSfxVolume(1.0);
   },
 
   _makeNoise() {
