@@ -1,0 +1,63 @@
+{
+  "name": "starfall-protocol",
+  "version": "1.0.0",
+  "description": "STARFALL PROTOCOL — an original sci-fi vertical-scrolling bullet-hell shooter for Windows.",
+  "main": "electron/main.js",
+  "author": "Studio NØSa",
+  "license": "MIT",
+  "private": true,
+  "homepage": "https://github.com/Keychrom/STARFALL-PROTOCOL#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Keychrom/STARFALL-PROTOCOL.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Keychrom/STARFALL-PROTOCOL/issues"
+  },
+  "keywords": [
+    "electron",
+    "canvas",
+    "game",
+    "bullet-hell",
+    "vertical-shooter",
+    "procedural"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke-test",
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.starfallprotocol.app",
+    "productName": "STARFALL PROTOCOL",
+    "copyright": "Copyright © 2026 Studio NØSa",
+    "compression": "normal",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "electron/**/*",
+      "package.json",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "portable": {
+      "artifactName": "STARFALL-PROTOCOL-${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.9.0",
+    "electron-builder": "^26.15.3"
+  }
+}
