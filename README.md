@@ -28,7 +28,9 @@ Every ship, background, bullet, effect, music track, and sound effect is generat
 
 ### Windows版
 
-配布用のWindowsポータブル版は `npm run dist` で生成できます。GitHub Releases にビルド済み版がある場合は、そちらを利用してください。
+[最新版をダウンロード（GitHub Releases）](https://github.com/Keychrom/STARFALL-PROTOCOL/releases/latest)
+
+配布用のWindowsポータブル版は `npm run dist` で生成できます。ビルド済み版はGitHub Releasesで配布しています。
 
 ```bash
 npm ci
