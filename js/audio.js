@@ -1,55 +1,22 @@
 'use strict';
 
 /* ------------------------------------------------------------------
- *  Procedural audio: synthesized SFX + looping chip-style BGM.
- *  No external audio assets. AudioContext is unlocked on first input.
+ *  Audio: original BGM tracks + synthesized sound effects.
+ *  BGM streams from audio/bgm/; SFX are generated with Web Audio.
  * ------------------------------------------------------------------ */
 
 const TRACKS = {
-  title: {
-    bpm: 72,
-    chords: [[57, 'm'], [53, 'M'], [55, 'M'], [52, 'm']],
-    arp: [0, 1, 2, 3, 2, 1, 2, 3, 0, 2, 1, 3, 2, 3, 1, 2],
-    arpGain: 0.020, arpOct: 2, bass: 'half', drums: false, pad: true, soft: true,
-  },
-  stage1: {
-    bpm: 148,
-    chords: [[57, 'm'], [53, 'M'], [55, 'M'], [52, 'm']],
-    arp: [0, 2, 1, 3, 2, 1, 3, 2, 0, 1, 2, 3, 2, 3, 1, 2],
-    arpGain: 0.018, arpOct: 2, bass: '8th', drums: true, pad: false,
-  },
-  boss1: {
-    bpm: 162,
-    chords: [[50, 'm'], [46, 'M'], [48, 'M'], [45, 'm']],
-    arp: [0, 2, 1, 3, 1, 2, 3, 1, 0, 3, 2, 1, 2, 3, 1, 3],
-    arpGain: 0.021, arpOct: 2, bass: 'drive', drums: true, pad: true, tension: true,
-  },
-  stage2: {
-    bpm: 152,
-    chords: [[52, 'm'], [48, 'M'], [50, 'M'], [47, 'M']],
-    arp: [0, 1, 2, 3, 1, 3, 2, 1, 0, 2, 1, 3, 3, 2, 1, 2],
-    arpGain: 0.019, arpOct: 2, bass: '8th', drums: true, pad: false, soft: false,
-  },
-  boss2: {
-    bpm: 168,
-    chords: [[45, 'm'], [41, 'M'], [43, 'M'], [40, 'M']],
-    arp: [0, 3, 1, 2, 3, 1, 2, 3, 0, 2, 3, 1, 3, 2, 1, 3],
-    arpGain: 0.022, arpOct: 2, bass: 'drive', drums: true, pad: true, tension: true,
-  },
-  ending: {
-    bpm: 82,
-    chords: [[53, 'M'], [48, 'M'], [55, 'M'], [57, 'm']],
-    arp: [0, 2, 1, 3, 2, 3, 1, 2, 0, 1, 2, 3, 3, 2, 1, 2],
-    arpGain: 0.019, arpOct: 2, bass: 'half', drums: false, pad: true, soft: true,
-  },
+  title:  { file: 'title.mp3',  title: 'ORBITAL BRIEFING' },
+  stage1: { file: 'stage1.mp3', title: 'DEBRIS SWARM' },
+  boss1:  { file: 'boss1.mp3',  title: 'AEGIS HEAVY ASSAULT' },
+  stage2: { file: 'stage2.mp3', title: 'GATE APPROACH' },
+  boss2:  { file: 'boss2.mp3',  title: 'NOVA FINAL ORBIT' },
+  ending: { file: 'ending.mp3', title: 'PROTOCOL COMPLETE' },
 };
-
-const MUSIC_KEYS = [0, 3, 7, 12];
 
 const AudioSys = {
   ctx: null,
   master: null,
-  music: null,
   sfx: null,
   comp: null,
   noiseBuf: null,
@@ -57,15 +24,14 @@ const AudioSys = {
   muted: false,
   track: null,
   pendingTrack: null,
-  step: 0,
-  stepDur: 0.1,
-  nextStepTime: 0,
-  timer: null,
+  bgm: null,
+  bgmVolume: 0.5,
   _lastSfx: Object.create(null),
 
   init() {
     if (this.ctx) {
       if (this.ctx.state === 'suspended') this.ctx.resume();
+      this.resumeBgm();
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -89,17 +55,12 @@ const AudioSys = {
     this.master.gain.value = this.muted ? 0 : 0.72;
     this.master.connect(this.comp);
 
-    this.music = this.ctx.createGain();
-    this.music.gain.value = 0.38;
-    this.music.connect(this.master);
-
     this.sfx = this.ctx.createGain();
     this.sfx.gain.value = 0.55;
     this.sfx.connect(this.master);
 
     this.noiseBuf = this._makeNoise();
     this.ready = true;
-    this.timer = setInterval(() => this._scheduler(), 55);
 
     if (this.pendingTrack) {
       const t = this.pendingTrack;
@@ -116,10 +77,10 @@ const AudioSys = {
       this.master.gain.cancelScheduledValues(t);
       this.master.gain.setTargetAtTime(this.muted ? 0 : 0.72, t, 0.03);
     }
+    if (this.bgm) this.bgm.volume = this.muted ? 0 : this.bgmVolume;
+    if (!this.muted) this.resumeBgm();
     return this.muted;
   },
-
-  hz(midi) { return 440 * Math.pow(2, (midi - 69) / 12); },
 
   _makeNoise() {
     const len = Math.floor(this.ctx.sampleRate * 1.2);
@@ -135,114 +96,37 @@ const AudioSys = {
     const def = TRACKS[name];
     if (!def) return;
     if (!this.ctx) { this.pendingTrack = name; return; }
-    if (this.track === name) return;
+    if (this.track === name && this.bgm) {
+      this.resumeBgm();
+      return;
+    }
+
     this.track = name;
-    this.step = 0;
-    this.stepDur = 60 / def.bpm / 4;
-    this.nextStepTime = this.ctx.currentTime + 0.06;
+    this.pendingTrack = null;
+
+    if (this.bgm) this.bgm.pause();
+
+    const audio = new Audio(`audio/bgm/${def.file}`);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = this.muted ? 0 : this.bgmVolume;
+    audio.addEventListener('error', () => {
+      console.warn(`[audio] BGM load failed: ${def.file}`);
+    });
+    this.bgm = audio;
+    this.resumeBgm();
   },
 
-  stopMusic() { this.track = null; },
-
-  _scheduler() {
-    const ctx = this.ctx;
-    if (!ctx || ctx.state !== 'running' || !this.track) return;
-    if (this.nextStepTime < ctx.currentTime - 0.25) {
-      this.nextStepTime = ctx.currentTime + 0.05;
-    }
-    const horizon = ctx.currentTime + 0.2;
-    let guard = 0;
-    while (this.nextStepTime < horizon && guard < 32) {
-      this._scheduleStep(this.step, this.nextStepTime);
-      this.nextStepTime += this.stepDur;
-      this.step++;
-      guard++;
-    }
+  resumeBgm() {
+    if (!this.bgm || !this.bgm.paused) return;
+    const p = this.bgm.play();
+    if (p && p.catch) p.catch(() => {});
   },
 
-  _scheduleStep(step, t) {
-    const def = TRACKS[this.track];
-    if (!def) return;
-    const bar = Math.floor(step / 16);
-    const s = step % 16;
-    const [root, quality] = def.chords[bar % def.chords.length];
-    const third = quality === 'm' ? 3 : 4;
-    const tones = [0, third, 7, 12];
-
-    // Pad chord at the top of each bar.
-    if (def.pad && s === 0) {
-      const barDur = this.stepDur * 16;
-      for (let i = 0; i < 3; i++) {
-        this._tone(this.hz(root + 12 + tones[i]), t, barDur * 0.98,
-          'triangle', def.soft ? 0.013 : 0.010, this.music,
-          { attack: 0.14, release: 0.5, filter: 1000 });
-      }
-    }
-
-    // Bass line.
-    if (def.bass === 'half') {
-      if (s === 0 || s === 8) {
-        this._tone(this.hz(root - 12), t, this.stepDur * 7, 'triangle', 0.055, this.music,
-          { attack: 0.012, release: 0.12, filter: 420 });
-      }
-    } else if (def.bass === '8th') {
-      if (s % 4 === 0) {
-        const n = (s === 8) ? root - 12 + 7 : root - 12;
-        this._tone(this.hz(n), t, this.stepDur * 3.2, 'triangle', 0.060, this.music,
-          { attack: 0.008, release: 0.08, filter: 520 });
-      }
-    } else if (def.bass === 'drive') {
-      if (s % 2 === 0) {
-        const n = (s % 8 === 4) ? root - 5 : root - 12;
-        this._tone(this.hz(n), t, this.stepDur * 1.5, 'square', 0.030, this.music,
-          { attack: 0.004, release: 0.05, filter: 400 });
-      }
-    }
-
-    // Arpeggio sparkle.
-    if (!(def.soft && s % 2 === 1)) {
-      const idx = def.arp[s] % 4;
-      let n = root + def.arpOct * 12 + tones[idx];
-      if (def.tension && s % 8 === 7) n += 12;
-      this._tone(this.hz(n), t, this.stepDur * (def.soft ? 3.4 : 1.7),
-        def.soft ? 'sine' : 'square',
-        def.arpGain * (s % 4 === 0 ? 1.25 : 0.85), this.music,
-        { attack: 0.004, release: def.soft ? 0.25 : 0.05, filter: def.soft ? 2400 : 3200 });
-    }
-
-    // A shy high counter-melody on boss tracks.
-    if (def.tension && s === 10) {
-      this._tone(this.hz(root + 24 + third), t, this.stepDur * 5, 'sine', 0.014, this.music,
-        { attack: 0.02, release: 0.3, filter: 4000 });
-    }
-
-    if (!def.drums) return;
-
-    // Percussion.
-    if (s === 0 || s === 8) {
-      this._kick(t, s === 0 ? 0.20 : 0.14);
-    }
-    if (s === 4 || s === 12) {
-      this._noise(t, 0.12, s === 12 ? 0.055 : 0.040, 1400, this.music);
-    }
-    if (s % 2 === 0) {
-      this._noise(t, 0.028, s % 4 === 2 ? 0.020 : 0.013, 6500, this.music);
-    }
-  },
-
-  _kick(t, gain) {
-    const ctx = this.ctx;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(135, t);
-    osc.frequency.exponentialRampToValueAtTime(42, t + 0.12);
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(gain, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-    osc.connect(g).connect(this.music);
-    osc.start(t);
-    osc.stop(t + 0.18);
+  stopMusic() {
+    this.track = null;
+    this.pendingTrack = null;
+    if (this.bgm) this.bgm.pause();
   },
 
   _tone(freq, t, dur, type, gain, dest, opts = {}) {

@@ -147,7 +147,11 @@ class Game {
       AudioSys.init();
       if (this.state === 'title' && !AudioSys.track) AudioSys.playTrack('title');
     });
-    window.addEventListener('pointerdown', () => AudioSys.init());
+    window.addEventListener('pointerdown', () => {
+      AudioSys.init();
+      AudioSys.resumeBgm();
+      if (this.state === 'title' && !AudioSys.track) AudioSys.playTrack('title');
+    });
     window.addEventListener('blur', () => {
       if (this.state === 'stage') this.pauseGame();
     });
@@ -566,7 +570,9 @@ class Game {
     this.enemies = [];
     this.phaseResult = null;
     this.toast = null;
-    AudioSys.playTrack(this.stage ? this.stage.bossTrack : 'boss1');
+    let bossTrack = this.stage ? this.stage.bossTrack : 'boss1';
+    if (def.isMid && this.stageIndex === 1 && this.stage) bossTrack = this.stage.track;
+    AudioSys.playTrack(bossTrack);
   }
 
   onBossPhaseStart(boss) {
@@ -667,7 +673,7 @@ class Game {
     this.player.magnet = false;
     this.saveHighScore();
     AudioSys.play('clear');
-    AudioSys.playTrack(this.clearInfo.isLast ? 'ending' : this.stage.track);
+    AudioSys.playTrack('ending');
   }
 
   updateStageClear(dt) {

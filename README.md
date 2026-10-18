@@ -1,9 +1,9 @@
 # STARFALL PROTOCOL
 
 **A self-contained sci-fi vertical-scrolling bullet-hell shooter.**  
-Every ship, background, bullet, effect, music track, and sound effect is generated in code. There are no external art or audio assets.
+Ships, backgrounds, bullets, effects, and sound effects are generated in code. The six BGM tracks are original compositions by Studio NØSa.
 
-軌道防衛軍の迎撃機を操る、オリジナルSF縦スクロールシューティングです。Windows向けのデスクトップアプリ（Electron）としてビルドできます。
+軌道防衛軍の迎撃機を操る、オリジナルSF縦スクロールシューティングです。Windows向けのデスクトップアプリ（Electron）としてビルドできます。画像・効果音はコード生成、BGMはStudio NØSa作曲のオリジナル6曲です。
 
 **Created by Studio NØSa**
 
@@ -21,7 +21,7 @@ Every ship, background, bullet, effect, music track, and sound effect is generat
 - **ノーミスボーナス**: 攻撃パターンを被弾・ボムなしで突破すると、残り時間に応じたボーナスを獲得。
 - **ニアミス**: 敵弾の近くをかすめるとスコアが入り、HUDの `NEAR MISS` が増加します。
 - **4段階の難易度**: EASY / NORMAL / HARD / LUNATIC。LUNATICは道中・ボスともに大きく強化され、ボスは回転する隙間付きリングを追加で放ちます。
-- **プロシージャル生成**: 自機、ドローン、ボス艦、背景、弾、エフェクト、BGM、効果音をすべてコードで生成。外部の画像・音声素材は使用していません。
+- **プロシージャル生成**: 自機、ドローン、ボス艦、背景、弾、エフェクト、効果音をコードで生成。BGMはStudio NØSa作曲のオリジナル楽曲を使用しています。
 - **ローカル保存**: ハイスコアや難易度設定はアプリ内のローカルストレージに保存されます。外部送信はありません。
 
 ## プレイ方法
@@ -37,7 +37,7 @@ npm ci
 npm run dist
 ```
 
-`dist/STARFALL-PROTOCOL-1.0.0.exe` が生成されます。リポジトリにはビルド成果物を含めていないため、配布する場合はこのEXEをGitHub Releasesに添付してください。
+`dist/STARFALL-PROTOCOL-1.0.1.exe` が生成されます。リポジトリにはビルド成果物を含めていないため、配布する場合はこのEXEをGitHub Releasesに添付してください。
 
 - インストール不要のポータブル実行ファイルです。
 - 初回起動に数秒かかる場合があります。
@@ -99,6 +99,20 @@ LUNATICでは弾数・弾速・ボスHP・敵の出現数が大きく増え、�
 | 1. デブリ帯 | WATCHER-01（護衛駆逐艦） | AEGIS（重巡航艦） |
 | 2. 軌道ゲート | GATEKEEPER（軌道防衛ユニット） | NOVA（軌道コア） |
 
+### BGM
+
+| 使用箇所 | 曲名 |
+| --- | --- |
+| タイトル | ORBITAL BRIEFING |
+| エリア1 デブリ帯 | DEBRIS SWARM |
+| 中ボス〜ボス1 | AEGIS HEAVY ASSAULT |
+| エリア2 軌道ゲート（中ボス含む） | GATE APPROACH |
+| 最終ボス | NOVA FINAL ORBIT |
+| クリア／エンディング | PROTOCOL COMPLETE |
+
+作曲: **Studio NØSa**  
+音源: `audio/bgm/`（クレジット: [`audio/bgm/CREDITS.md`](audio/bgm/CREDITS.md)）
+
 ### スコア
 
 - 敵撃破、ボスへのダメージ、ニアミスでスコアが入ります。
@@ -117,10 +131,10 @@ LUNATICでは弾数・弾速・ボスHP・敵の出現数が大きく増え、�
 ## 技術構成
 
 - **HTML5 Canvas 2D** 描画。内部解像度960×720、1.5倍スーパーサンプリング。
-- **Web Audio API** による効果音・チップチューン風BGMのリアルタイム合成。
+- **Web Audio API** による効果音のリアルタイム合成と、Studio NØSa作曲のBGM 6曲（MP3）の再生。
 - **Electron 44** によるデスクトップアプリ化。レンダラーはサンドボックス化し、CSPを設定しています。
 - 弾はオブジェクトプールで管理し、大量の弾幕でも安定して動作するよう調整。
-- 外部ライブラリはElectron本体とビルドツールのみ。ゲーム内アセットはすべてプロシージャル生成です。
+- 外部ライブラリはElectron本体とビルドツールのみ。画像と効果音はプロシージャル生成、BGMは本プロジェクトのオリジナル音源です。
 - ハイスコア・難易度・音量設定はローカル保存。外部サーバーへの送信はありません。
 
 ## プロジェクト構成
@@ -133,7 +147,7 @@ STARFALL-PROTOCOL/
 ├─ js/
 │  ├─ util.js                定数・数学・難易度・UIカラー
 │  ├─ input.js               キーボード入力
-│  ├─ audio.js               SFX / BGM合成
+│  ├─ audio.js               BGM再生 / SFX合成
 │  ├─ sprites.js             自機・ドローン・ボス・弾・アイテムの描画生成
 │  ├─ background.js          宇宙背景（星・惑星・デブリ・塵）
 │  ├─ bullets.js             敵弾プール・自機弾・アイテム・パーティクル
@@ -143,6 +157,8 @@ STARFALL-PROTOCOL/
 │  ├─ boss.js                ボス／中ボスのフェーズ管理と照準リング
 │  ├─ stages.js              2エリアのタイムラインとボス攻撃パターン
 │  └─ game.js                状態遷移・HUD・スコア・各画面
+├─ audio/
+│  └─ bgm/                   BGM 6曲（MP3）とクレジット
 ├─ electron/
 │  └─ main.js                Electronメイン処理・ウィンドウ生成
 ├─ build/
@@ -165,7 +181,7 @@ STARFALL-PROTOCOL/
 - 難易度・弾数倍率: `js/util.js` の `DIFFICULTIES`
 - 敵の配置: `js/stages.js` の `STAGES[].events`
 - ボスの攻撃: `js/stages.js` の各フェーズ `pattern()`
-- BGM: `js/audio.js` の `TRACKS`
+- BGM: `js/audio.js` の `TRACKS`（音源は `audio/bgm/`）
 - 配色: `js/util.js` のUIカラー、`js/sprites.js`、`js/background.js`
 - アプリ名・ビルド設定: `package.json`
 
@@ -183,9 +199,9 @@ python tools/make_icon.py
 ## ライセンス・クレジット
 
 - 制作・著作: **Studio NØSa**
-- コードとゲーム内で生成されるアセットは **MIT License** です。詳細は [LICENSE](LICENSE) を参照してください。
-- タイトル、キャラクター、艦船、ステージ、音楽は本プロジェクトのオリジナルです。
-- 外部の画像・音声素材や既存作品のキャラクターは使用していません。
+- コード、画像・効果音、BGMは **MIT License** です。詳細は [LICENSE](LICENSE) を参照してください。
+- タイトル、キャラクター、艦船、ステージ、BGMは本プロジェクトのオリジナルです。BGMの作曲・著作はStudio NØSaです。
+- 外部の画像素材や既存作品の素材は使用していません。
 - 本作は特定の既存作品・企業とは関係のないオリジナル作品です。
 
 ---

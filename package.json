@@ -1,6 +1,6 @@
 {
   "name": "starfall-protocol",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "STARFALL PROTOCOL — an original sci-fi vertical-scrolling bullet-hell shooter for Windows.",
   "main": "electron/main.js",
   "author": "Studio NØSa",
@@ -43,8 +43,12 @@
       "css/**/*",
       "js/**/*",
       "electron/**/*",
+      "audio/**/*",
       "package.json",
       "build/icon.png"
+    ],
+    "asarUnpack": [
+      "audio/**/*"
     ],
     "win": {
       "target": [
